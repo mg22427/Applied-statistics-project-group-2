@@ -126,11 +126,9 @@ sum(is.na(MyTeam_DataSet2))
 
 library(caret)       # For feature selection & ML
 library(tidyverse)   # For data manipulation
-library(mlbench)     # Example datasets
-library(glmnet)      # LASSO & Ridge Regression
 library(randomForest)# Random Forest for feature importance
 library(MASS)        # LDA for dimension reduction
-
+library(ggplot2)
 
 #################################################################
 
@@ -141,10 +139,15 @@ Classes = MyTeam_DataSet2$Class
 
 ### t-test?
 p_valuesT = apply(Gene_data, 2, function(gene) t.test(gene ~Classes)$p.value)
-sort(rank(p_valuesT))
-# doesnt work
+sort(p_valuesT)
 
-### LDA?
+top50_ttest = order(p_valuesT)[1:50]
+sub_50_ttest = MyTeam_DataSet2[,top50_ttest]
+
+
+
+#????????????????????????????????????????????????????????????????????????????????v
+### LDA? # THIS DOES NOT WORK AT THE MOMENT 
 lda_model = lda(MyTeam_DataSet2$Class~., data = MyTeam_DataSet2)
 lda_pred = predict(lda_model)
 
@@ -168,14 +171,13 @@ ggplot(MyTeam_DataSet2, aes(x = PC1, y = PC2, color = Classes)) +
        y = "Principal Component 2") +
   theme_minimal() +
   scale_color_manual(values = c("blue", "red"))
+###?????????????????????????????????????????????????????????????????????????
 
 
 ########
 
 #using random forest to reduce ( recursive feature eliminaton)
 # supervised feature selection
-library("caret")
-library("randomForest")
 
 #setting class as a factor
 MyTeam_DataSet2$Class = as.factor(MyTeam_DataSet2$Class)
@@ -194,54 +196,10 @@ RFelim_results = rfe(MyTeam_DataSet2[],MyTeam_DataSet2$Class,sizes = 50,rfeContr
 reduced_genes = print(RFelim_results$optVariables)
 print(RFelim_results$results)
 
-new_dataframe = MyTeam_DataSet2[,reduced_genes]
+Randomforest_subset = MyTeam_DataSet2[,reduced_genes]
 
 
 # note, it treats class as a variable, this is important for any classification problem
 ###################
-# but what about dimension reduction
-# well we can use LDA to reduce the number of features
 
-# making an lda
-lda_res = lda(Class ~ ., data = MyTeam_DataSet2 )
-# says the reslults are colinear, so it cannit differentiate between different genes
-
-
-# Load required package
-library(caret)
-
-# Perform PCA to reduce dimensionality
-#first remove class 
-MyTeam_DataSet2_classless = MyTeam_DataSet2[,-1]
-
-pca_result <- prcomp(MyTeam_DataSet2[, ncol(MyTeam_DataSet2_classless)], center = TRUE, scale. = TRUE)
-summary(pca_result)
-# Select the top principal components (e.g., first 50 PCs)
-MyTeam_DataSet2_PCA <- as.data.frame(pca_result$x[1:10])  # Adjust number of PCs
-
-# Add class back
-MyTeam_DataSet2_PCA$class <- MyTeam_DataSet2$class
-
-# Run LDA on the PCA-transformed data
-lda_res <- lda(Class ~ ., data = MyTeam_DataSet2_PCA)
-
-print(lda_res)
-
-
-plot(MyTeam_DataSet2_PCA$PC1, col = as.factor(MyTeam_DataSet2$Class), pch = 19,
-     xlab = "Principal Component 1", ylab = "Class",
-     main = "LDA Projection on PC1")
-legend("topright", legend = levels(MyTeam_DataSet2$Class), col = 1:2, pch = 19)
-
-
-
-gene_matrix <- as.matrix(MyTeam_DataSet2[, -ncol(MyTeam_DataSet2)])
-
-# Apply Sparse PCA to extract 10 components
-spca_res <- spca(gene_matrix, K = 10, type = "predictor")
-
-# Convert SPCA output into a dataframe
-MyTeam_DataSet2_SPCA <- as.data.frame(spca_res$scores[, 1:10])
-
-# Add class labels back
-MyTeam_DataSet2_SPCA$class <- MyTeam_DataSet2$class
+common_cols <- intersect(colnames(Randomforest_subset), colnames(sub_50_ttest))
