@@ -125,11 +125,12 @@ print(my_team_subset2)
 sum(is.na(MyTeam_DataSet2))
 
 library(caret)       # For feature selection & ML
-library(tidyverse)   # For data manipulation
 library(randomForest)# Random Forest for feature importance
 library(MASS)        # LDA for dimension reduction
-library(ggplot2)
-
+library(ggplot2)     # for graphing
+library(tidyverse)   # For data manipulation, is a must have just in case 
+library(factoextra)  # extra plotting of PCA
+library(viridis)     # better visualisation
 #################################################################
 
 
@@ -144,38 +145,55 @@ sort(p_valuesT)
 top50_ttest = order(p_valuesT)[1:50]
 sub_50_ttest = MyTeam_DataSet2[,top50_ttest]
 
+# i would love to have tried chi-square test, however i dont know anything about this dataset
+# and so dont think it would be applicable as i dont know what would be "expected"
 
 
 #????????????????????????????????????????????????????????????????????????????????v
-### LDA? # THIS DOES NOT WORK AT THE MOMENT 
+### LDA? # THIS DOES NOT WORK AT THE MOMENT, results are colinear  
 lda_model = lda(MyTeam_DataSet2$Class~., data = MyTeam_DataSet2)
 lda_pred = predict(lda_model)
 
-plot(lda_pred$x[,1], col=Classes, pch=19, 
+plot(lda_pred$x[,1], col=Class, pch=19, 
      xlab="LDA1", ylab="LDA2", main="LDA for Cancer Classification")
 
-prcomp = prcomp(MyTeam_DataSet2, )
-plot(prcomp, main = "PCA results", xlab = "Component")
-summary(prcomp)
+# trying to use PCA instead to reduce dimensions.
+prcomp = prcomp(MyTeam_DataSet2, center = T, scale. = F) # Making a pca
+plot(prcomp, main = "PCA results", xlab = "Component")   # plotting the pca
 
-PC1 = prcomp$x[,1]
-PC1
-PC2 = prcomp$x[,2]
-PC2
-Classes = as.factor(Classes)
+# i wasnt happy with the plotting so found a better package 
+### https://www.rdocumentation.org/packages/factoextra/versions/1.0.7/topics/eigenvalue
 
-ggplot(MyTeam_DataSet2, aes(x = PC1, y = PC2, color = Classes)) +
+fviz_eig(prcomp, choice = "eigenvalue") # plots eigenvalues of PCA
+fviz_eig(prcomp, choice = "variance") # Plots explained vaience of PCA
+fviz_eig(prcomp, addlabels = T)       # adding labels 
+fviz_eig(prcomp, addlabels = F, geom = "bar", barcolor = "black", barfill = heat.colors(n=78), ncp = 78) # plotting all PCS
+fviz_eig(prcomp, addlabels = F, geom = "bar", barcolor = "black", barfill = heat.colors(25,rev = F), ncp = 25) # thinning to 25 
+fviz_eig(prcomp, addlabels = T, geom = , barcolor = "black", barfill = heat.colors(10,rev = F), ncp = 10) # thinnig to 10
+# looking at both the graph and the summary data, we can see that after the first 9 or 10 components, there is a diminishing return of the
+# explained variance of each PC. It takes another 68 PC's to make up another 50 percent of the variance explained
+# 
+
+PC1 = prcomp$x[,1] # making PC1 a vector
+PC2 = prcomp$x[,2] # making PC2 a vector
+
+# Plotting PC1 and PC2 against eachother with CLASS
+ggplot(MyTeam_DataSet2, aes(x = PC1, y = PC2, color = as.factor(Class))) +
   geom_point(size = 2.5) +
   labs(title = "PCA of Gene Expression Data",
        x = "Principal Component 1",
        y = "Principal Component 2") +
   theme_minimal() +
   scale_color_manual(values = c("blue", "red"))
+
+# this seems to not work very well, theres lots of clustering with all of the components in PC1 and PC2
+
+
 ###?????????????????????????????????????????????????????????????????????????
 
 
 ########
-
+# * * * 1
 #using random forest to reduce ( recursive feature eliminaton)
 # supervised feature selection
 
@@ -192,14 +210,24 @@ plot(RFelim_results, type = c("g","o"))
 # looking at the plot, it seems to be that around 50 variables is ideal for accuracy, 
 # any less than this and you reduce that data too much. has good balance
 set.seed(22427)
-RFelim_results = rfe(MyTeam_DataSet2[],MyTeam_DataSet2$Class,sizes = 50,rfeControl = control)
+RFelim_results = rfe(MyTeam_DataSet2[],MyTeam_DataSet2$Class,sizes = 51,rfeControl = control)
 reduced_genes = print(RFelim_results$optVariables)
 print(RFelim_results$results)
 
 Randomforest_subset = MyTeam_DataSet2[,reduced_genes]
 
 
-# note, it treats class as a variable, this is important for any classification problem
-###################
 
-common_cols <- intersect(colnames(Randomforest_subset), colnames(sub_50_ttest))
+####
+#references i have read so far
+ # https://www.geeksforgeeks.org/feature-selection-techniques-in-machine-learning/ * * * 1
+
+# to surmise, there the t- test, PCA and random forest selection 
+# the reduced PCA set is 
+  PCA25 = prcomp$x[,1:25] # PCA scores for the first 25 PC
+  PCA10 = prcomp$x[,1:10] # PCA scores for the first 10 PC
+
+# for Random forest the top 50 genes are 
+  Randomforest_subset
+
+  
